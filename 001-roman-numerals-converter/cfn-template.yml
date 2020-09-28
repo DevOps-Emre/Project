@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  This template deploys an t2.micro EC2 Linux instance which runs an 
+  application that converts user-input decimal numbers to roman numbers. 
+  The application is coded in Python and deployed as a web application
+  with Flask on EC2. For deploying EC2, keypair is defined as a parameter.
+Parameters:
+  KeyPair:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Please enter the name of your KeyPair file.
+
+Resources:
+  romanSecGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: SSH + HTTP
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80 
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22 
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: RomanConvertSecGroup
+        
+  romanInstance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      ImageId: ami-0c94855ba95c71c99
+      InstanceType: t2.micro
+      KeyName: !Ref KeyPair
+      SecurityGroups:
+        - !Ref romanSecGroup
+      Tags:
+        - Key: Name
+          Value: !Sub Web Server of ${AWS::StackName}
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #! /bin/bash 
+            #update os
+            yum update -y
+            yum install -y python3
+            pip3 install flask            
+            wget https://raw.githubusercontent.com/E2031-Salih/cw_AWS_Dev_Ops_Workshop/master/aws/projects/001-roman-numerals-converter/app.py
+
+            mkdir templates
+            cd templates
+
+            wget https://raw.githubusercontent.com/E2031-Salih/cw_AWS_Dev_Ops_Workshop/master/aws/projects/001-roman-numerals-converter/templates/index.html
+
+            wget https://raw.githubusercontent.com/E2031-Salih/cw_AWS_Dev_Ops_Workshop/master/aws/projects/001-roman-numerals-converter/templates/result.html
+
+            cd ..
+            python3 app.py
+
+Outputs:
+  WebsiteURL:
+    Description: Roman Numerals Converter Application Website URL
+    Value: !Join
+      - '://'
+      - - http
+        - !GetAtt romanInstance.PublicDnsName
